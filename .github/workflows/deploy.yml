@@ -27,7 +27,7 @@ jobs:
         run: mvn clean package -DskipTests
 
       - name: Getting docker image
-        run: docker build -t ${{secrets.DOCKERHUB_USERNAME}}/payments-app:latest .
+        run: docker build -t arbajali/payments-app:latest .
 
       - name: Login Docker
         uses: docker/login-action@v3
