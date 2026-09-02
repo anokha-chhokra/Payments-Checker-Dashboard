@@ -1,0 +1,52 @@
+name: Payments Checker build and deploy
+
+on:
+  push:
+    branches:
+      -main
+
+env:
+  IMAGE_NAME: payments-app
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Source
+        uses: actions/checkout@v4
+
+      - name: Setting Up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - name: Build Jar
+        run: mvn clean package -DskipTests
+
+      - name: Getting docker image
+        run: docker build -t ${{secrets.DOCKERHUB_USERNAME}}/payments-app:latest .
+
+      - name: Login Docker
+        uses: docker/login-action@v3
+        with:
+            username: ${{secrets.DOCKERHUB_USERNAME}}
+            password: ${{secrets.DOCKERHUB_PASSWORD}}
+
+      - name: Push image to Docker
+        run: docker push ${{secrets.DOCKERHUB_USERNAME}}/payments-app:latest
+
+      - name: Deploy to EC2
+        uses: appleboy/ssh-actions@1.2.0
+        with:
+          host: ${{secrets.EC2_HOST}}
+          username: ${{secrets.EC2_USER}}
+          key: ${{secrets.EC2_SSH_KEY}}
+          script:
+            docker pull ${{secrets.DOCKERHUB_USERNAME}}/payments-app:latest
+            docker stop payments-app || true
+            docker rm payments-app || true
+            docker run -d --name payments-app --restart unless-stopped -p 7060:7060 ${{secrets.DOCKER_USERNAME}}/payments-app:latest
+            docker image prune -f
